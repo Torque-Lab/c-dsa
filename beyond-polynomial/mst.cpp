@@ -158,6 +158,14 @@ class Graph {
                 if (!v)
                 return false;
             }
+            int edgeCount = 0;
+            for (int i = 0; i < current_selection.size(); i++)
+            edgeCount += current_selection[i].size();
+
+            edgeCount /= 2;
+
+            if (edgeCount != numNodes - 1)
+                 return false;
             return true;   
         }
 
