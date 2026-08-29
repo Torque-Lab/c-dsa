@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include<set>
 #include <tuple>
 #include <fstream>
 #include <random>
@@ -96,35 +97,63 @@ public:
         cout << "\n";
     }
 
-    bool random_graph_generator(int numNodes,int numEdges,string input_file_path){
+bool random_graph_generator(int numNodes, int numEdges, string input_file_path) {
 
-            random_device rd;
-            mt19937 gen(rd());
-            uniform_int_distribution<int> distrib(1, numNodes);
+        random_device rd;
+        mt19937 gen(rd());
 
-            fstream file (input_file_path,ios::out);
+        uniform_int_distribution<int> nodeDist(1, numNodes);
+        uniform_int_distribution<int> weightDist(1, numNodes);
 
-            if(file.fail()){
-                cout<<"fail to open file to write graph generated with probability";
-                return false;
-                 };
+        set<pair<int, int>> edges;
+        vector<tuple<int, int, int>> graphEdges;
 
-            file << numNodes << " " << numEdges <<"\n";
-            numNodes=numNodes;
-            numEdges=numEdges;
 
-            for (int i=1;i<=numEdges;i++){
-                int u= distrib(gen);
-                int v=distrib(gen);
-                int w=distrib(gen);
-                file <<u<<" "<< v<< " "<<w<< "\n";
+        for (int v = 2; v <= numNodes; v++) {
 
-            }
-        
+            uniform_int_distribution<int> parentDist(1, v - 1);
+            int u = parentDist(gen);
+            int a = min(u, v);
+            int b = max(u, v);
+            int w = weightDist(gen);
+            edges.insert({a, b});
+            graphEdges.push_back({u, v, w});
+        }
+
+        while ((int)graphEdges.size() < numEdges) {
+
+            int u = nodeDist(gen);
+            int v = nodeDist(gen);
+
+            // No self loop 
+            if (u == v)
+                continue;
+
+            int a = min(u, v);
+            int b = max(u, v);
+
+            if (edges.count({a, b}))
+                continue;
+
+            int w = weightDist(gen);
+            edges.insert({a, b});
+            graphEdges.push_back({u, v, w});
+        }
+            fstream file(input_file_path, ios::out);
+             if (file.fail()) {
+                 cout << "Failed to open file to write generated graph.\n";
+                 return false;
+             }
+             file << numNodes << " " << numEdges << "\n";
+             for (const auto& [u, v, w] : graphEdges) {
+                 file << u << " " << v << " " << w << "\n";
+             }
+         
+            file.close();
+
         return true;
+}
 
-     }
-    
 private:
     bool build_subsets_of_given_size_and_find_VC(int index, int remaining, vector<int> &current_cover) {
             if(remaining==0) {
@@ -176,6 +205,7 @@ private:
             file << v+1 << " ";
 
         file << "\n";
+        file.close();
 
         return true;
     }
@@ -202,7 +232,6 @@ int main()
 
     }
     else if(mode ==2){
-           Graph G("seed_graph.txt", "vertex_cover.txt");
             cout<<"Enter required Vertex:\n";
             int numNodes;
             cin>>numNodes;
@@ -218,9 +247,16 @@ int main()
                 cout<<"Total edge exceeding max possible value\n";
                 return 1;
             }
+            if (numEdges < numNodes-1){
+                cout<< "with"<< numEdges << "edge not possible to create connected graph\n";
+                return 1;
+            }
 
-            if(G.random_graph_generator(numNodes,numEdges,"seed_graph.txt")){
-                cout<<"start"; 
+            string input_file="seed_graph" + to_string(numNodes) + ".txt";
+            string output_file="vertex_cover" + to_string(numNodes)+".txt";
+            Graph G(input_file, output_file);
+
+            if(G.random_graph_generator(numNodes,numEdges,input_file)){
                         if(G.read_file_build_graph()) {
                             G.display_graph();
                             G.explore_subset_of_graph();
@@ -229,7 +265,7 @@ int main()
                         }
 
                 }else{
-                cout << "failing to write random see graph in file\n";
+                cout << "failing to write random seed graph in file\n";
                 }
 
     }else {
