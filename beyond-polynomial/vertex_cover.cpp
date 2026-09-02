@@ -4,6 +4,8 @@
 #include <tuple>
 #include <fstream>
 #include <random>
+#include <chrono>
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -219,12 +221,13 @@ int main()
 
     int mode;
     cin>>mode;
-
+    auto start=chrono::high_resolution_clock::now();
     if (mode==1){
             Graph G("graph.txt","vertex_cover.txt");
                 if(G.read_file_build_graph()) {
                 G.display_graph();
                 G.explore_subset_of_graph();
+              
 
                 }else{
                 cout << "can not complete work and it seem something serious wrong\n";
@@ -238,6 +241,8 @@ int main()
             cout<<"Enter required numder of edges:\n";
             int numEdges;
             cin>>numEdges;
+
+            auto start=chrono::high_resolution_clock::now();
 
             if (numNodes<0 || numEdges<0){
                 cout<<"input negative not allowed so aborting any further processing";
@@ -260,6 +265,38 @@ int main()
                         if(G.read_file_build_graph()) {
                             G.display_graph();
                             G.explore_subset_of_graph();
+                            auto end=chrono::high_resolution_clock::now();
+                            chrono::duration<double,milli>time_taken= end-start;
+                            cout<<"\nTotal time taken for "<< numNodes << " nodes"
+                                << " and " << numEdges << " edges" << " are:"
+                                <<time_taken.count()<<" milli second\n";
+                            cout<<"\nwe have find vertex cover successfully"
+                                 <<"so if you want to visualize graph"
+                                 <<"please press 5 else 7 to end program: ";
+
+                            int visual_selected=0;
+                            cin>>visual_selected;
+                            if (visual_selected==5){
+                                    pid_t pid = fork();
+                                    if (pid == 0) {
+                                    string node = to_string(numNodes);
+
+                                    execlp(
+                                        "python3",
+                                        "python3",
+                                        "visualize.py",
+                                        node.c_str(),
+                                        (char*)NULL
+                                    );
+                                    } else {
+                                     
+                                     int status;
+                                     waitpid(pid, &status, 0);
+                                    }
+                            }else {
+                                cout<<"\nyou have selected unsupported mode so visual formation cancelled";
+                            }
+
                         }else {
                         cout<<"graph read failed aborting work\n";
                         }
