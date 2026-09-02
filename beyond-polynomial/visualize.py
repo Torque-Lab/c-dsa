@@ -24,7 +24,13 @@ with open(vc_file) as f:
     vertex_cover = set(map(int, f.read().split()))
 
 
-pos = nx.spring_layout(G, seed=42)
+plt.figure(figsize=(14, 10))
+pos = nx.spring_layout(
+    G,
+    seed=42,
+    k=2.0,        
+    iterations=200
+)
 
 node_colors = [
     "green" if node in vertex_cover else "skyblue"
@@ -43,7 +49,8 @@ nx.draw(
 weights = nx.get_edge_attributes(G, "weight")
 nx.draw_networkx_edge_labels(G, pos, edge_labels=weights)
 
-plt.savefig(f"vertex{n}.png", format="png", dpi=300)
+plt.savefig(f"vertex{n}.png", format="png", dpi=300, bbox_inches="tight")
 plt.title(f"Nodes: {num_nodes}, Edges: {num_edges}, VC: {cover_size}")
 
-plt.show()
+# plt.show()
+plt.close()

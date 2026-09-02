@@ -1,3 +1,0 @@
-8
-1 2 3 4 5 8 9 10 
-4.17653 milli second taken to find this vertex cover
