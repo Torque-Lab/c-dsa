@@ -43,7 +43,7 @@ nx.draw(
 weights = nx.get_edge_attributes(G, "weight")
 nx.draw_networkx_edge_labels(G, pos, edge_labels=weights)
 
-plt.savefig(f"vertex{num_nodes}.png", format="png", dpi=300)
+plt.savefig(f"vertex{n}.png", format="png", dpi=300)
 plt.title(f"Nodes: {num_nodes}, Edges: {num_edges}, VC: {cover_size}")
 
 plt.show()

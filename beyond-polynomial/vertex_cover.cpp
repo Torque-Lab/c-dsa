@@ -257,8 +257,8 @@ int main()
                 return 1;
             }
 
-            string input_file="seed_graph" + to_string(numNodes) + ".txt";
-            string output_file="vertex_cover" + to_string(numNodes)+".txt";
+            string input_file="seed_graph" + to_string(numNodes)+to_string(numEdges) + ".txt";
+            string output_file="vertex_cover" + to_string(numNodes)+ to_string(numEdges)+".txt";
             Graph G(input_file, output_file);
 
             if(G.random_graph_generator(numNodes,numEdges,input_file)){
@@ -270,6 +270,13 @@ int main()
                             cout<<"\nTotal time taken for "<< numNodes << " nodes"
                                 << " and " << numEdges << " edges" << " are:"
                                 <<time_taken.count()<<" milli second\n";
+
+                                fstream file (output_file,ios::app);
+                                if(file.fail()){
+
+                                        cout<<"failed to open file";
+                                }
+                                file<<time_taken.count()<< " milli second taken to find this vertex cover";
                             cout<<"\nwe have find vertex cover successfully"
                                  <<"so if you want to visualize graph"
                                  <<"please press 5 else 7 to end program: ";
@@ -280,12 +287,14 @@ int main()
                                     pid_t pid = fork();
                                     if (pid == 0) {
                                     string node = to_string(numNodes);
+                                    string edge=to_string(numEdges);
+                                    string arg=node+edge;
 
                                     execlp(
                                         "python3",
                                         "python3",
                                         "visualize.py",
-                                        node.c_str(),
+                                        arg.c_str(),
                                         (char*)NULL
                                     );
                                     } else {
