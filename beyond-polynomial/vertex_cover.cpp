@@ -23,6 +23,7 @@ class Graph
     vector<vector<pair<int, float>>> adj_list;
     vector<tuple<int, int, float>> edges;
     vector<int> best_cover;
+    vector<int>approx_cover;
 
 public:
     Graph(string input_file_path, string output_file_path)
@@ -78,6 +79,25 @@ public:
         }
     }
 
+
+    bool do_two_factor_vc_approx_and_verify_vc(){
+        vector<int>matched(numNodes,false);
+
+        for (auto &[u,v,w] : edges){
+            if (!matched[u] && !matched[v]) {
+                matched[u] = true;
+                matched[v] = true;
+                approx_cover.push_back(u);
+                approx_cover.push_back(v);
+             }
+        }
+        if(is_valid_cover(approx_cover)){
+            write_two_f_vertex_cover_to_file();
+            return true;
+        }
+        return false;
+    }
+
     void explore_subset_of_graph()
     {
         vector<int> current_cover;
@@ -114,6 +134,11 @@ public:
 
         return best_cover.size();
     }
+
+    int get_approx_vc_cover_size(){
+        return approx_cover.size();
+    }
+
 
     bool random_graph_generator(int numNodes, int numEdges, string input_file_path)
     {
@@ -256,12 +281,36 @@ private:
 
         return true;
     }
+
+    bool write_two_f_vertex_cover_to_file()
+    {
+        fstream file(outputfile_path, ios::out);
+
+        if (file.fail())
+        {
+            cout << "Cannot open output file\n";
+            return false;
+        }
+
+        file << approx_cover.size() << "\n";
+
+        for (int v : approx_cover)
+            file << v + 1 << " ";
+
+        file << "\n";
+        file.close();
+
+        return true;
+    }
+
 };
 
 int main()
 {
 
     bool autonomous_mode = true;
+    bool seed_file_read=true;
+
     if (!autonomous_mode)
     {
         cout << "Enter processing mode 1 for manual graph and 2 for random graph\n";
@@ -406,14 +455,11 @@ int main()
         file.close();
         for (int numEdges = 10; numEdges < 50;)
         {
-
             auto start = chrono::high_resolution_clock::now();
             string input_file = "seed_graph" + to_string(numNodes) + to_string(numEdges) + ".txt";
             string output_file = "vertex_cover" + to_string(numNodes) + to_string(numEdges) + ".txt";
             Graph G(input_file, output_file);
 
-            if (G.random_graph_generator(numNodes, numEdges, input_file))
-            {
                 if (G.read_file_build_graph())
                 {
                     G.display_graph();
@@ -426,9 +472,57 @@ int main()
                          << brute_force_time_taken << " milli second\n";
 
                     int brute_force_vc_size = G.get_vertex_cover_size();
+                    chrono::duration<double, milli> two_f_time_taken;
+                    int approx_two_f_vc=0;
+
+                    if(seed_file_read){
+                            cout<<"\ndoing approximation vc\n";
+                            auto start_two_f= chrono::high_resolution_clock::now();
+                            string input_file = "seed_graph" + to_string(numNodes) + to_string(numEdges) + ".txt";
+                            string output_file = "approx_vertex_cover" + to_string(numNodes) + to_string(numEdges) + ".txt";
+                            Graph G(input_file, output_file);
+
+                            G.read_file_build_graph();
+                            G.do_two_factor_vc_approx_and_verify_vc();
+                            auto end_two_f= chrono::high_resolution_clock::now();
+                            two_f_time_taken=end_two_f-start_two_f;
+                            approx_two_f_vc=G.get_approx_vc_cover_size();
+                            cout << "\nTotal time taken for " << numNodes << " nodes"
+                            << " and " << numEdges << " edges" << " in approx approach are:"
+                            << two_f_time_taken.count() << " milli second\n";
+
+
+                            pid_t pid = fork();
+                            if (pid == 0)
+                            {
+                            string node = to_string(numNodes);
+                            string edge = to_string(numEdges);
+                            string arg = node + edge;
+                            
+                            cout <<"child is doing work";
+                            execlp(
+                                "python3",
+                                "python3",
+                                "visualize_two_f.py",
+                                arg.c_str(),
+                                (char *)NULL
+                            );
+                            exit(0);
+                           
+                            }
+                             else
+                            {
+
+                            int status;
+                            waitpid(pid, &status, 0);
+                        }
+
+                    }
+                    double approx_factor= (double) approx_two_f_vc/brute_force_vc_size;
+                    double approx_two_f_time= two_f_time_taken.count();
                     G.write_final_result("vertex_cover_table.txt",
                                          numNodes, numEdges, brute_force_vc_size, brute_force_time_taken,
-                                         0, 0, 0);
+                                         approx_two_f_vc,approx_two_f_time, approx_factor);
 
                     pid_t pid = fork();
                     if (pid == 0)
@@ -455,10 +549,11 @@ int main()
                 {
                     cout << "graph file read failed";
                 }
-            }
-
+            
             numEdges = numEdges + 5;
-        }
+
+            }
+        
     }
 
     return 0;
