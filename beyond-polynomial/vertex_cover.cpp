@@ -307,124 +307,9 @@ private:
 
 int main()
 {
-
-    bool autonomous_mode = true;
-    bool seed_file_read=true;
-
-    if (!autonomous_mode)
-    {
-        cout << "Enter processing mode 1 for manual graph and 2 for random graph\n";
-
-        int mode;
-        cin >> mode;
-        auto start = chrono::high_resolution_clock::now();
-        if (mode == 1)
-        {
-            Graph G("graph.txt", "vertex_cover.txt");
-            if (G.read_file_build_graph())
-            {
-                G.display_graph();
-                G.explore_subset_of_graph();
-            }
-            else
-            {
-                cout << "can not complete work and it seem something serious wrong\n";
-            }
-        }
-        else if (mode == 2)
-        {
-            cout << "Enter required Vertex:\n";
-            int numNodes;
-            cin >> numNodes;
-            cout << "Enter required numder of edges:\n";
-            int numEdges;
-            cin >> numEdges;
-
-            auto start = chrono::high_resolution_clock::now();
-
-            if (numNodes < 0 || numEdges < 0)
-            {
-                cout << "input negative not allowed so aborting any further processing";
-                return 1;
-            }
-            if (numEdges > (numNodes * (numNodes - 1)) / 2)
-            {
-                cout << "Total edge exceeding max possible value\n";
-                return 1;
-            }
-            if (numEdges < numNodes - 1)
-            {
-                cout << "with" << numEdges << "edge not possible to create connected graph\n";
-                return 1;
-            }
-
-            string input_file = "seed_graph" + to_string(numNodes) + to_string(numEdges) + ".txt";
-            string output_file = "vertex_cover" + to_string(numNodes) + to_string(numEdges) + ".txt";
-            Graph G(input_file, output_file);
-
-            if (G.random_graph_generator(numNodes, numEdges, input_file))
-            {
-                if (G.read_file_build_graph())
-                {
-                    G.display_graph();
-                    G.explore_subset_of_graph();
-                    auto end = chrono::high_resolution_clock::now();
-                    chrono::duration<double, milli> time_taken = end - start;
-                    cout << "\nTotal time taken for " << numNodes << " nodes"
-                         << " and " << numEdges << " edges" << " are:"
-                         << time_taken.count() << " milli second\n";
-                    cout << "\nwe have find vertex cover successfully"
-                         << "so if you want to visualize graph"
-                         << "please press 5 else 7 to end program: ";
-
-                    int visual_selected = 0;
-                    cin >> visual_selected;
-                    if (visual_selected == 5)
-                    {
-                        pid_t pid = fork();
-                        if (pid == 0)
-                        {
-                            string node = to_string(numNodes);
-                            string edge = to_string(numEdges);
-                            string arg = node + edge;
-
-                            execlp(
-                                "python3",
-                                "python3",
-                                "visualize.py",
-                                arg.c_str(),
-                                (char *)NULL);
-                        }
-                        else
-                        {
-
-                            int status;
-                            waitpid(pid, &status, 0);
-                        }
-                    }
-                    else
-                    {
-                        cout << "\nyou have selected unsupported mode so visual formation cancelled";
-                    }
-                }
-                else
-                {
-                    cout << "graph read failed aborting work\n";
-                }
-            }
-            else
-            {
-                cout << "failing to write random seed graph in file\n";
-            }
-        }
-        else
-        {
-            cout << "you selected wrong mode and so work getting aborted goodbye\n";
-        }
-    }
-    else
-    {
-        int numNodes = 10;
+        int numNodes = 20;
+        int sig_break=false;
+        bool read_seed_file=false;
         ofstream file("vertex_cover_table.txt");
 
         file << "            VERTEX COVER RESULTS FOR COMPARISON BETWEEN NAIVE\n"
@@ -453,12 +338,20 @@ int main()
         file << string(108, '-') << '\n';
 
         file.close();
-        for (int numEdges = 10; numEdges < 50;)
+        for (int numEdges = 20; numEdges <200;)
         {
             auto start = chrono::high_resolution_clock::now();
             string input_file = "seed_graph" + to_string(numNodes) + to_string(numEdges) + ".txt";
             string output_file = "vertex_cover" + to_string(numNodes) + to_string(numEdges) + ".txt";
             Graph G(input_file, output_file);
+
+            if (numEdges > (numNodes*(numNodes-1))/2){
+                break;
+            }
+
+            if(!read_seed_file){
+            G.random_graph_generator(numNodes,numEdges,input_file);
+            }
 
                 if (G.read_file_build_graph())
                 {
@@ -475,7 +368,7 @@ int main()
                     chrono::duration<double, milli> two_f_time_taken;
                     int approx_two_f_vc=0;
 
-                    if(seed_file_read){
+
                             cout<<"\ndoing approximation vc\n";
                             auto start_two_f= chrono::high_resolution_clock::now();
                             string input_file = "seed_graph" + to_string(numNodes) + to_string(numEdges) + ".txt";
@@ -485,6 +378,7 @@ int main()
                             G.read_file_build_graph();
                             G.do_two_factor_vc_approx_and_verify_vc();
                             auto end_two_f= chrono::high_resolution_clock::now();
+
                             two_f_time_taken=end_two_f-start_two_f;
                             approx_two_f_vc=G.get_approx_vc_cover_size();
                             cout << "\nTotal time taken for " << numNodes << " nodes"
@@ -517,12 +411,14 @@ int main()
                             waitpid(pid, &status, 0);
                         }
 
-                    }
                     double approx_factor= (double) approx_two_f_vc/brute_force_vc_size;
                     double approx_two_f_time= two_f_time_taken.count();
                     G.write_final_result("vertex_cover_table.txt",
                                          numNodes, numEdges, brute_force_vc_size, brute_force_time_taken,
                                          approx_two_f_vc,approx_two_f_time, approx_factor);
+                    
+                    }
+
 
                     pid_t pid = fork();
                     if (pid == 0)
@@ -537,6 +433,8 @@ int main()
                             "visualize.py",
                             arg.c_str(),
                             (char *)NULL);
+
+                        exit(0);
                     }
                     else
                     {
@@ -544,17 +442,20 @@ int main()
                         int status;
                         waitpid(pid, &status, 0);
                     }
-                }
-                else
-                {
-                    cout << "graph file read failed";
-                }
-            
-            numEdges = numEdges + 5;
+                
+
+            numEdges = numEdges + 20;
+
+            if(numEdges> 190 && sig_break){
+                break;
+            }
+
+            if (numEdges==200){
+                sig_break=true;
+                numEdges=190;
+            }
 
             }
-        
-    }
 
     return 0;
 }
