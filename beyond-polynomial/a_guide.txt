@@ -1,0 +1,25 @@
+
+Some basic guide about program:
+
+1) vertex_cover.cpp is the main source code that read seed graph from earlier practical,
+
+2) In the vertex_cover_table*.txt, we write final result like runtime,VC size ..etc
+
+3) All vertex*.png is image of graph
+
+4) all model*.mod file is LP contraint file written in GNU MathProgam Lang
+  syntax, and lp_solution*.txt is LP solution
+
+5) GNU glpsol LP engine is used to  efficiently solve LP problems.
+
+6) vc_binary is compiled code, you can re run by calling ./vc_binary in unix based system.
+
+7) for windows you can recompile source code with | g++ vertex_cover.cpp -o vc_binary| command
+    provided host has compiler support for latest c++.
+
+8) visualize.py is small python script that our main program from cpp fork as child process to create
+    images of graph
+9) following packages must be in host machine to run code- Matplotlib, networkx,glpsol
+
+Thanks for reading,
+Mathura kumar 
