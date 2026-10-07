@@ -20,9 +20,10 @@ class Graph {
 	string inputfile_path, outputfile_path;	
 	vector<vector<pair<int, float>>> adj_list;
 	vector<tuple<int, int, float>> edges;
-	vector<int> best_cover;
-	vector<int>approx_cover;
-	int approx_cover_size;
+	vector<int> greedy_cover;
+	vector<double>lp_approx_cover;
+	double lp_optimal_value;
+	int lp_vc_size;
 
 public:
 	Graph(string input_file_path, string output_file_path) {
@@ -79,7 +80,7 @@ public:
 
 			for (int i=1; i<=numNodes;i++){
 				string var ="x" +to_string(i);
-				file <<"var "<<var << ", binary;"<<"\n";
+				file <<"var "<<var << ">=0;"<<"\n";
 			}
 			file <<"minimize total_sum:";
 
@@ -104,22 +105,22 @@ public:
 			file <<"printf \"  Choosen Nodes As Per LP \\n\" >> \""<<solution_file<<"\";\n";
 			file <<"printf \"                          \\n\" >> \""<<solution_file<<"\";\n";
 
-			file <<"printf \"Minimum Nodes: %d\\n\\n\", total_sum >> \""<<solution_file<<"\";\n";
+			file <<"printf \"Minimum Nodes: %g\\n\\n\", total_sum >> \""<<solution_file<<"\";\n";
 
 			file <<"printf \"Selected Variable Choices:\\n\" >> \""<<solution_file<<"\";\n";
 
 			for (int i=1;i<=numNodes;i++){
 			string var ="x" +to_string(i);
-			file <<"printf \""<<var<<" = %d\\n\", "<<var
+			file <<"printf \""<<var<<" = %g\\n\", "<<var
 				<<" >> \""<<solution_file<<"\";\n";
 			}
 
 			file <<"\nprintf \"\\nFOR_PROGRAM\\n\" >> \""<<solution_file<<"\";\n";
-			file <<"printf \"%d\\n \", total_sum >> \""<<solution_file<<"\";\n";
+			file <<"printf \"%g\\n \", total_sum >> \""<<solution_file<<"\";\n";
 
 			for (int i=1;i<=numNodes;i++){
 				string var ="x" +to_string(i);
-				file <<"printf \"%d \", "<<var
+				file <<"printf \"%g \", "<<var
 				<<" >> \""<<solution_file<<"\";\n";
 			}
 
@@ -134,7 +135,7 @@ public:
 	}
 	bool read_lp_solution_and_verify(int numNodes, int numEdges){
 
-		int minimum_value=0;
+		double lp_optimal;
 		string solution_file="lp_solution"+to_string(numNodes)+to_string(numEdges)+".txt";
 		string approx_cover_file="approx_vertex_cover"+to_string(numNodes)+to_string(numEdges)+".txt";
 		ifstream solution_file_fd(solution_file,ios::in);
@@ -152,34 +153,34 @@ public:
 			break;
 			}
 		}
-		if (!(solution_file_fd >> minimum_value)){
+		if (!(solution_file_fd >> lp_optimal)){
 			solution_file_fd.close();
 			return false;
 		}
-		approx_cover.resize(numNodes);
-		approx_cover_size=minimum_value;
+		lp_approx_cover.resize(numNodes);
+		lp_optimal_value=lp_optimal;
 		for (int i=1;i<=numNodes;i++){
-			int value;
+			double value;
 
 			if (!(solution_file_fd >> value)){
 				solution_file_fd.close();
 				return false;
 		}
-			approx_cover[i-1]=value;
+			lp_approx_cover[i-1]=value;
 		}
 		solution_file_fd.close();
-		if (is_valid_LP_found(approx_cover)){
+		if (is_valid_LP_found(lp_approx_cover)){
 			cout<<"valid LP founded";
 			ofstream approx_fd (approx_cover_file,ios::out);
-			approx_fd <<approx_cover_size<<"\n";
+			approx_fd <<lp_vc_size<<"\n";
 			for (int i=0;i<numNodes;i++){
-				if (approx_cover[i]==1){
+				if (lp_approx_cover[i]>=0.5){
 					approx_fd<<i+1 << " ";
 				}
 			}
 			return true;
 		}else{
-			cout<< "Integer LP not exist";
+			cout<< "fractional LP not exist";
 			return false;
 		}
 		
@@ -194,77 +195,59 @@ public:
 		return false;
 	}
 
-	void explore_subset_of_graph() {
-		vector<int> current_cover;
-		best_cover.clear();
+	
 
-		for (int size = 1; size <= numNodes; size++) {
-			if (build_subsets_of_given_size_and_find_VC(0, size, current_cover))
-				break;
-		}
-
-		if (write_vertex_cover_to_file()) {
-			cout << "\nvertext cover written in file\n";
-		}else{
-			cout << "failed to write vertex cover in file\n";
-		}
-
-		 cout << "\nMinimum Vertex Cover Size = "
-		<< best_cover.size() << "\n";
-		cout << "Vertices : ";
-
-		for (int v : best_cover){
-			cout << v + 1 << " ";
-		}
-		cout << "\n";
-	}
-
-	int get_vertex_cover_size() {
-		return best_cover.size();
+	int get_greedy_cover_size() {
+		return greedy_cover.size();
 	}
 
 	int get_approx_vc_cover_size(){
-		return approx_cover_size;
+		return lp_vc_size;
+	}
+	double get_lp_optimal_value(){
+		return lp_optimal_value;
 	}
 
 
 
-	void write_final_result(const string &filename, int nodes, int edges, int bruteVC, double bruteTime,int approxVC, double approxTime, double approxFactor) {
+	void write_final_result(const string &filename, int nodes, int edges, int greedyVC, double greedyTime,double lp_optimal,int lp_approxVC, double lp_approxTime, double lp_approxFactor) {
 
 		ofstream file(filename, ios::app);
 
 		file << left
 		<< setw(10) << nodes
 		<< setw(10) << edges
-		<< setw(22) << bruteVC
-		<< setw(24) << fixed << setprecision(5) << bruteTime
-		<< setw(22) << approxVC
-		<< setw(18) << approxTime
-		<< setw(16) << approxFactor
+		<< setw(22) << greedyVC
+		<< setw(24) << fixed << setprecision(5) << greedyTime
+		<<setw(24) << lp_optimal
+		<< setw(24) << lp_approxVC
+		<< setw(24) << lp_approxTime
+		<< setw(24) << lp_approxFactor
 		<< '\n';
 	}
 
+
+
+
+    	bool do_greedy_vc_approx_and_verify_vc(int numNodes){
+       		 
+		vector<int>matched(numNodes,false);
+
+       	 	for (auto &[u,v,w] : edges){
+            	if (!matched[u] && !matched[v]) {
+               	 	matched[u] = true;
+                	matched[v] = true;
+                	greedy_cover.push_back(u);
+                	greedy_cover.push_back(v);
+             }
+        	}
+        	if(is_valid_cover(greedy_cover)){
+           	 write_two_f_vertex_cover_to_file();
+           	 return true;
+        	}
+        return false;
+    }
 private:
-	bool build_subsets_of_given_size_and_find_VC(int index, int remaining, vector<int> &current_cover) {
-		if (remaining == 0) {
-			if (is_valid_cover(current_cover)) {
-				best_cover = current_cover;
-				return true;
-			}
-			return false;
-		}
-
-		if (index == numNodes)
-			return false;
-
-		if (numNodes - index < remaining)
-			return false;
-		current_cover.push_back(index);
-		if (build_subsets_of_given_size_and_find_VC(index + 1, remaining - 1, current_cover))
-			return true;
-		current_cover.pop_back();
-		return build_subsets_of_given_size_and_find_VC(index + 1, remaining, current_cover);
-	}
 	bool is_valid_cover(vector<int> &cover) {
 		vector<bool> chosen(numNodes, false);
 
@@ -281,11 +264,12 @@ private:
 	return true;
 	}
 
-	bool is_valid_LP_found(vector<int> &cover) {
+	bool is_valid_LP_found(vector<double> &cover) {
 		vector<bool> chosen(numNodes, false);
-
-		for (int i=0;i<cover.size();i++){
-			if (cover[i]==1){
+			lp_vc_size=0;
+		for (int i=0;i <cover.size();i++){
+			if (cover[i]>=0.5){
+				lp_vc_size+=1;
 				chosen[i]=true;
 			}
 		}
@@ -297,24 +281,27 @@ private:
 		}
 		return true;
 	}
-	bool write_vertex_cover_to_file() {
+	
+	bool write_two_f_vertex_cover_to_file() {
 
-		fstream file(outputfile_path, ios::out);
-		if (file.fail()) {
-			cout << "Cannot open output file\n";
-			return false;
-		}
+        	fstream file(outputfile_path, ios::out);
 
-		file << best_cover.size() << "\n";
-		for (int v : best_cover) {
-		file << v + 1 << " ";
+        	if (file.fail()) {
+            	cout << "Cannot open output file\n";
+            	return false;
+        	}
+
+        	file << greedy_cover.size() << "\n";
+
+        	for (int v : greedy_cover){
+           		 file << v + 1 << " ";
 		}
-		file << "\n";
-		file.close();
-	return true;
-	}
+        	file << "\n";
+        	file.close();
+        	return true;
+   	 }
+	
 };
-
 
 	int main() {
 
@@ -328,26 +315,28 @@ REPEAT_JUMP:
 	string final_result_file = "vertex_cover_table" + to_string(numNodes) + to_string(MAX_EDGE) + ".txt";
 	ofstream file(final_result_file);
 
-	file << "            VERTEX COVER RESULTS FOR COMPARISON BETWEEN NAIVE\n"
-	     << "            BRUTE FORCE ALGORITHAMS AND APPROXIMATION ALGORITHAMS\n"
+	file << "            VERTEX COVER RESULTS FOR COMPARISON BETWEEN      \n"
+	     << "            Greedy ALGORITHAMS AND LP_APPROXIMATION ALGORITHAMS\n"
 	     << "        \n\n";
 	file << left
 	     << setw(10) << "Node"
 	     << setw(10) << "Edge"
-	     << setw(22) << "Brute Force VC Size"
-	     << setw(24) << "Brute Force Time"
-	     << setw(16) << "Approx VC Size"
-	     << setw(18) << "Approx Time"
-	     << setw(16) << "Approx Factor"
+	     << setw(22) << "Greedy VC Size"
+	     << setw(24) << "Greedy Time"
+	     <<setw(24)  << "LP_Optimal_value"
+	     << setw(24) << "LP_Approx VC Size"
+	     << setw(24) << "LP_Approx Time"
+	     << setw(24) << "LP_Approx Factor"
 	     << '\n';	
 	file << left
 	     << setw(10) << ""
 	     << setw(10) << ""
 	     << setw(22) << ""
 	     << setw(24) << "(in milli second)"
-	     << setw(16) << ""
-	     << setw(18) << "(in milli second)"
-	     << setw(16) << ""
+	     <<setw (24) << ""
+	     << setw(24) << ""
+	     << setw(24) << "(in milli second)"
+	     << setw(24) << ""
 	     << '\n';
 
 	file << string(108, '-') << '\n';
@@ -359,28 +348,28 @@ REPEAT_JUMP:
 		auto start = chrono::high_resolution_clock::now();
 		string input_file = "seed_graph" + to_string(numNodes) + to_string(numEdges) + ".txt";
 		string output_file = "vertex_cover" + to_string(numNodes) + to_string(numEdges) + ".txt";
-		Graph G_Naive(input_file, output_file);
+		Graph G_greedy(input_file, output_file);
 		if (numEdges > (numNodes*(numNodes-1))/2){
 			break;
 		}
 
-		if (G_Naive.read_file_build_graph()) {
-			G_Naive.display_graph();
-			G_Naive.explore_subset_of_graph();
+		if (G_greedy.read_file_build_graph()) {
+			G_greedy.display_graph();
+			G_greedy.do_greedy_vc_approx_and_verify_vc(numNodes);
 			auto end = chrono::high_resolution_clock::now();
 			chrono::duration<double, milli> time_taken = end - start;
-			double brute_force_time_taken = time_taken.count();
+			double greedy_time_taken = time_taken.count();
 			cout << "\nTotal time taken for " << numNodes << " nodes"
 			<< " and " << numEdges << " edges" << " are:"
-			<< brute_force_time_taken << " milli second\n";
+			<< greedy_time_taken << " milli second\n";
 
-			int brute_force_vc_size = G_Naive.get_vertex_cover_size();
-			chrono::duration<double, milli> two_f_time_taken;
-			int approx_two_f_vc=0;
+			int greedy_vc_size = G_greedy.get_greedy_cover_size();
+			chrono::duration<double, milli> lp_time_taken;
+			int lp_vc_size=0;
 
 
 			cout<<"doing approximation vc\n";
-			auto start_two_f= chrono::high_resolution_clock::now();
+			auto start_lp_f= chrono::high_resolution_clock::now();
 			string input_file = "seed_graph" + to_string(numNodes) + to_string(numEdges) + ".txt";
 			string output_file = "approx_vertex_cover" + to_string(numNodes) + to_string(numEdges) + ".txt";
 			Graph G_LP(input_file, output_file);
@@ -406,13 +395,13 @@ REPEAT_JUMP:
 				cout<<"lp_solution read error";
 				break;
 			}
-			auto end_two_f= chrono::high_resolution_clock::now();
+			auto end_lp_f= chrono::high_resolution_clock::now();
 
-			two_f_time_taken=end_two_f-start_two_f;
-			approx_two_f_vc=G_LP.get_approx_vc_cover_size();
+			lp_time_taken=end_lp_f-start_lp_f;
+			lp_vc_size=G_LP.get_approx_vc_cover_size();
 			cout << "Total time taken for " << numNodes << " nodes"
 			<< " and " << numEdges << " edges" << " in approx approach are:"
-			<< two_f_time_taken.count() << " milli second\n";
+			<< lp_time_taken.count() << " milli second\n";
 
 
 			pid_t pid2 = fork();
@@ -435,11 +424,14 @@ REPEAT_JUMP:
 				waitpid(pid2, &status, 0);
 			}
 
-			double approx_factor= (double) approx_two_f_vc/brute_force_vc_size;
-			double approx_two_f_time= two_f_time_taken.count();
-			G_Naive.write_final_result(final_result_file,
-						 numNodes, numEdges, brute_force_vc_size, brute_force_time_taken,
-					approx_two_f_vc,approx_two_f_time, approx_factor);
+
+		
+			double approx_factor= (double) lp_vc_size/greedy_vc_size;
+			double lp_time= lp_time_taken.count();
+			double lp_optimal=G_LP.get_lp_optimal_value();
+			G_greedy.write_final_result(final_result_file,
+						 numNodes, numEdges, greedy_vc_size, greedy_time_taken, lp_optimal,
+					lp_vc_size,lp_time, approx_factor);
 		}
 
 
